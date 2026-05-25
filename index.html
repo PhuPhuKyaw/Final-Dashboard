@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Journey & Well-being Dashboard</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #2c3e50;
+            --primary-color: #3498db;
+            --accent-color: #e74c3c;
+            --border-color: #e1e8ed;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header h1 { margin: 0; font-size: 2.5rem; }
+        header p { margin: 10px 0 0 0; opacity: 0.9; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (min-width: 900px) {
+            .grid { grid-template-columns: 3fr 1fr; }
+            /* UPDATED: Changed from 1fr 1fr to 1fr to make charts span the full row width */
+            .vis-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
+        }
+
+        h2 { color: #2c3e50; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; margin-top: 0; }
+        h3 { color: #34495e; margin-top: 0; }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        select {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #bdc3c7;
+            background: white;
+            font-size: 14px;
+            min-width: 150px;
+        }
+
+        /* Visualization Styling */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            margin: 10px auto;
+            padding: 0px;
+        }
+        
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 0px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 10;
+        }
+
+        .axis-label { font-size: 12px; fill: #7f8c8d; }
+        .line { fill: none; stroke-width: 3; }
+        .dot { stroke: #fff; stroke-width: 2; }
+
+        /* Sections */
+        .ethics-grid {
+            display: grid;
+            grid-template-columns: 1fr; /* 1 column on mobile/small screens */
+            gap: 20px;
+        }
+
+        /* On screens wider than 768px, display 2 items in a row */
+        @media (min-width: 768px) {
+            .ethics-grid {
+                grid-template-columns: repeat(2, 1fr); 
+            }
+        }
+
+        .ethics-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-left: 4px solid #7f8c8d;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .ethics-item.mandatory { border-left-color: #e74c3c; }
+
+        .insight-list, .decision-list {
+            padding-left: 20px;
+        }
+        .insight-list li, .decision-list li {
+            margin-bottom: 12px;
+        }
+        
+        .error-msg {
+            color: #c0392b;
+            font-weight: bold;
+            background: #fde8e7;
+            padding: 15px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Academic Journey Dashboard</h1>
+        <p>A self-reflective data analysis mapping study habits, grades, mental stress, and lifestyle boundaries over one academic year.</p>
+    </header>
+
+    <section class="card" style="margin-bottom: 30px;">
+        <h2>📖 Story Overview</h2>
+        <p><strong>What is this story?</strong> This dashboard visualizes a single student's personal academic journey across two semesters (Fall and Spring), tracking how variables like weekly study hours, sleep, screen time, and stress levels correlate directly with final academic letter grades.</p>
+        <p><strong>Why is it meaningful?</strong> Modern students face an optimization problem: balancing academic excellence with personal well-being. By tracking these metrics weekly, this data moves past grade points and trends to expose the student's strength, weakness and the real cost of a high GPA—showing exactly where stress spikes, when sleep is sacrificed, and how social media serves as either an escape or a distraction.</p>
+    </section>
+
+    <section class="card" style="margin-bottom: 30px;">
+        <h3>🎛️ Dashboard Controls</h3>
+        <div class="controls">
+            <div class="control-group">
+                <label for="semesterFilter">Semester</label>
+                <select id="semesterFilter">
+                    <option value="all">All Semesters</option>
+                    <option value="Fall">Fall</option>
+                    <option value="Spring">Spring</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="deptFilter">Department</label>
+                <select id="deptFilter">
+                    <option value="all">All Departments</option>
+                    <option value="MATHEMATICS AND SCIENCES">Mathematics & Sciences</option>
+                    <option value="PILLAR">Pillar Courses</option>
+                    <option value="HUMANITIES AND SOCIAL SCIENCES">Humanities & Social Sciences</option>
+                </select>
+            </div>
+        </div>
+    </section>
+
+    <div class="grid">
+        <div class="vis-grid">
+            <div class="card">
+                <h3>Stress Levels vs. Study Hours (Correlation)</h3>
+                <div id="scatter-plot" class="chart-container"></div>
+            </div>
+            <div class="card">
+                <h3>Average Study Hours by Subjects</h3>
+                <div id="bar-chart" class="chart-container"></div>
+            </div>
+            <div class="card">
+                <h3>Grade vs Study Hours (Correlation)</h3>
+                <div id="scatter-plot-two" class="chart-container"></div>
+            </div>
+
+
+            
+            <div class="card">
+                <h3>Weekly Average Study Hour by Department</h3>
+                <div id="line-chart" class="chart-container"></div>
+            </div>
+            <div class="card">
+                <h3>Regular week vs Exam week (Average screen time)</h3>
+                <div id="compared-plot" class="chart-container"></div>
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 30px;">
+            <div class="card" style="flex: 1;">
+                <h2>🔍 Key Insights</h2>
+                <ul class="insight-list">
+                    <li><strong>Study hours vs Stress Level correlation:</strong> A clear negative correlation exists between Study_Hours_Per_Week and Stress_Level. This means that as your weekly study hours increase, your reported stress levels drastically decrease, or vice versa.</li>
+                    
+
+                    <li><strong>Study hours and Subject performance:</strong> Study hours are slightly balance among the subjects. There is no correlation between Grade and Study hours for all departments. Even though Seminar 2 has the highest study hour, its grade is lower than less study hour subjects such as Statistics, Probability and Macroeconomics. However, there are moderately positive correlation between study hour and grade for each department.  </li>
+                    
+                    <li><strong>Study Hour Pattern:</strong> There are recurring wave pattern in the study habbit. The repeating peaks occur 4 times around exam weeks: midterms and finals. The sudden spikes points out my procrastination habit. This explains why the hours are so high but the grades remain lower in Pillar courses.   </li>
+                    
+                    <li><strong>Pillar vs Mathematics courses</strong> Pillar courses have the highest average study hour during exam weeks. Compared to fall semester, there is a flatter line for pillar department during spring semester. This indicates a steady workload (like weekly readings or writing) rather than sudden exam study.
+                        Although Mathematics and sciences courses have the lowest average study hour, they are the highest performing courses. This supports that I have a stronger foundational background in mathematics and sciences than pillar courses.</li>
+
+                    <li><strong>Screen time Reduction Period: </strong> My screen time drops sharply drop by about 8 hours but study time increases during exam weeks.   </li>
+                
+                </ul>
+            </div>
+
+            <div class="card" style="flex: 1;">
+                <h2>Data-Driven Decisions</h2>
+                <p>Based on my academic data,</p>
+                <ul class="decision-list">
+                    <li><strong>Study habit and Time allocation:</strong> I should study more consistently, even immediately after exams, so that I will not have a heavy workload or stressful periods during exam weeks. I should also spend more time and avoid procrastinating, especially in Pillar and social science courses, because they require qualitative analysis, and failing to do so often leads to low-quality papers.</li>
+                    <li><strong>Study method:</strong> I should also change my study method such as doing weekly reading and writing regularly, practicing critical thinking.</li>
+                    <li><strong>Screen Time reduction:</strong> I need to reduce my screen time, even during regular weeks. This would help me increase my study hours and maintain more consistent study habits.</li>
+                
+                
+                
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <section class="card">
+        <h2>⚖️ Ethics & Responsibility Section</h2>
+        <div class="ethics-grid">
+            <div class="ethics-item mandatory">
+                <h3>🔒 Privacy Statement</h3>
+                <p><strong>Data Included:</strong> This dataset captures personal academic logs, weekly self-reported metrics (sleep, stress levels), and basic institutional metadata (course departments). 
+                The data includes only Mathematics courses, and no programming courses.</p>
+                <p><strong>Anonymization:</strong> Instructor details and course sections have been entirely excluded to preserve student and institutional anonymity.</p>
+            </div>
+            <div class="ethics-item mandatory">
+                <h3>⚠️ Bias & Limitation Disclosure</h3>
+                <p><strong>Memory Bias & Subjectivity:</strong> Metrics like <em>Stress Level (1-10)</em> and weekly <em>Study Hours,</em> <em>Sleep hour</em> and <em> Screen time</em> are self-reported. So, they may contain mistakes or bias from recent emotions and experiences.</p>
+                <p><strong>Dataset Scale:</strong> The dataset tracks only one student during a single academic period. Hence, findings cannot be generalized to broader student populations.</p>
+            </div>
+            <div class="ethics-item">
+                <h3>📊 Visualization Justification</h3>
+                <p><strong>Chart Choices:</strong> 
+                    <ul>
+                        <li>A Scatter plot was utilized to see the clear correlation between Study hour and Stress level. </li> 
+                        <li>A bar chart was used to compare numerical values (Study hour) across distinct categories (Subject). </li> 
+                        <li>A scatter plot was used again to show there is a moderate correlation between Study hour and Academic performance in each department. </li>
+                        <li>A line chart explicitly shows pattern changes over a semester timeline, helping to identify trends, fluctuations, and relationships between my behavior and performance.</li>
+                </ul></p>
+                
+                    <p><strong>Misinterpretation Risk:</strong> Correlation does not mean causation. For example, even if study hours and stress levels have a negative correlation, it does not prove that studying more directly reduces stress.
+                Factors such as exam and subject difficulty, sleep hour, and personal circumstances might influence stress level.
+                
+                </p>
+            </div>
+            <div class="ethics-item">
+                <h3>🎯 Responsible Decision Limits</h3>
+                <p><ul>
+                    <li>Most of my decisions promote constant action and discipline. For instance, I assume more studying = less stress. But this could be reversed. When stress levels are low, it might be easier to sit down and focus for long hours. So, students should understand the importance of healthy relaxtion. </li>
+                    <li>Since the data does not include programming courses, which need a lot of practice, conclusions based only on math courses may underestimate the workload and study demands of programming courses.</li>
+                </ul></p>
+            </div>
+        </div>
+    </section>
+</div>
+
+<div id="tooltip" class="tooltip"></div>
+
+<script>
+// Global state placeholder for data loaded asynchronously
+let dataset = [];
+const tooltip = d3.select("#tooltip");
+
+// Load the local CSV dynamically via D3 Fetch API
+d3.csv("academic_journey_data.csv").then(data => {
+    
+    // Type conversion (strings to native numbers)
+    dataset = data.map(d => ({
+        Date: d.Date,
+        Month: d.Month,
+        Week: +d.Week,
+        Semester: d.Semester,
+        Subject: d.Subject,
+        Final_Letter_Grade: d.Final_Letter_Grade,
+        Study_Hours_Per_Week: +d.Study_Hours_Per_Week,
+        Class_Attendance_Pct: +d.Class_Attendance_Pct,
+        Sleep_Hours_Average: +d.Sleep_Hours_Average,
+        Stress_Level: +d.Stress_Level,
+        Screen_Time_Social_Media: +d.Screen_Time_Social_Media,
+        Department: d.Department,
+        Is_Exam_Week: d.Is_Exam_Week
+    }));
+
+    initDashboard();
+
+}).catch(error => {
+    console.error("Error loading the CSV file:", error);
+    d3.selectAll(".chart-container").html("<p class='error-msg'>Failed to load data. Make sure you are running a local web server (e.g. VS Code Live Server) and your file is named 'academic_journey.csv'.</p>");
+});
+
+function initDashboard() {
+    updateCharts();
+
+    // Re-render graphs instantly when interaction filters change
+    d3.select("#semesterFilter").on("change", updateCharts);
+    d3.select("#deptFilter").on("change", updateCharts);
+}
+
+function getFilteredData() {
+    const sem = d3.select("#semesterFilter").property("value");
+    const dept = d3.select("#deptFilter").property("value");
+
+    return dataset.filter(d => {
+        const matchSem = (sem === "all" || d.Semester === sem);
+        const matchDept = (dept === "all" || d.Department === dept);
+        return matchSem && matchDept;
+    });
+}
+
+function updateCharts() {
+    const data = getFilteredData();
+
+    renderScatter(data);
+    renderBar(data);
+    renderScatterStudyhourVsGrade(data);
+    renderLine(data);
+    // renderBox(data);
+    renderScreenTimeComparison(data);
+}
+
+
+// 1. SCATTER PLOT: Stress vs Study hour
+function renderScatter(data) {
+    const container = d3.select("#scatter-plot");
+    container.html("");
+    
+    const width = container.node().clientWidth;
+    const height = 320;
+    const margin = {top: 25, right: 30, bottom: 25, left: 45};
+
+    
+
+    const svg = container.append("svg").attr("width", width).attr("height", height);
+
+    if (!data || data.length === 0) return;
+
+    // Safe Tooltip configuration initialization
+    let tooltip = d3.select("#scatter-plot-tooltip");
+    if (tooltip.empty()) {
+        tooltip = d3.select("body").append("div")
+            .attr("id", "scatter-plot-tooltip")
+            .style("position", "absolute")
+            .style("visibility", "hidden")
+            .style("background-color", "rgba(255, 255, 255, 0.98)")
+            .style("border", "1px solid #dcdde1")
+            .style("border-radius", "6px")
+            .style("padding", "8px 12px")
+            .style("font-family", "-apple-system, BlinkMacSystemFont, sans-serif")
+            .style("font-size", "12px")
+            .style("color", "#2c3e50")
+            .style("box-shadow", "0 4px 12px rgba(0,0,0,0.15)")
+            .style("pointer-events", "none")
+            .style("z-index", "1000");
+    }
+
+    // 1. Build coordinate scales using Study_Hours_Per_Week for X-axis
+    const maxStudyHours = d3.max(data, d => d.Study_Hours_Per_Week) || 6;
+    const xScale = d3.scaleLinear()
+        .domain([0, Math.ceil(maxStudyHours + 0.5)]) // Starts at 0 to provide absolute context
+        .range([margin.left, width - margin.right]);
+
+    const yScale = d3.scaleLinear()
+        .domain([0, 10]) // Stress levels strictly bound between 0 and 10
+        .range([height - margin.bottom, margin.top]);
+
+    // 2. Append X-Axis & Label
+    svg.append("g")
+        .attr("transform", `translate(0, ${height - margin.bottom})`)
+        .call(d3.axisBottom(xScale).ticks(6))
+        .append("text")
+        .attr("class", "axis-label")
+        .attr("x", width - margin.right)
+        .attr("y", 35)
+        .style("text-anchor", "end")
+        .style("fill", "#7f8c8d")
+        .style("font-size", "11px")
+        .style("font-family", "sans-serif")
+        .text("Study Hours Per Week");
+
+    // 3. Append Y-Axis & Label
+    svg.append("g")
+        .attr("transform", `translate(${margin.left}, 0)`)
+        .call(d3.axisLeft(yScale).ticks(5))
+        .append("text")
+        .attr("class", "axis-label")
+        .attr("transform", "rotate(-90)")
+        .attr("y", -32)
+        .attr("x", -margin.top)
+        .style("text-anchor", "end")
+        .style("fill", "#7f8c8d")
+        .style("font-size", "11px")
+        .style("font-family", "sans-serif")
+        .text("Stress Level (1-10)");
+
+    // 4. Calculate Least-Squares Linear Regression Line for Trend Line
+    const n = data.length;
+    if (n > 1) {
+        const xSum = d3.sum(data, d => d.Study_Hours_Per_Week);
+        const ySum = d3.sum(data, d => d.Stress_Level);
+        const xySum = d3.sum(data, d => d.Study_Hours_Per_Week * d.Stress_Level);
+        const xSqSum = d3.sum(data, d => d.Study_Hours_Per_Week * d.Study_Hours_Per_Week);
+
+        const denominator = (n * xSqSum) - (xSum * xSum);
+        
+        if (denominator !== 0) {
+            const slope = ((n * xySum) - (xSum * ySum)) / denominator;
+            const intercept = (ySum - (slope * xSum)) / n;
+
+            const xMin = d3.min(data, d => d.Study_Hours_Per_Week);
+            const xMax = d3.max(data, d => d.Study_Hours_Per_Week);
+
+            svg.append("line")
+                .attr("x1", xScale(xMin))
+                .attr("y1", yScale(slope * xMin + intercept))
+                .attr("x2", xScale(xMax))
+                .attr("y2", yScale(slope * xMax + intercept))
+                .attr("stroke", "#2c3e50")        
+                .attr("stroke-width", 2)
+                .attr("stroke-dasharray", "5,5")   
+                .style("opacity", 0.6)
+                .style("pointer-events", "none");  
+        }
+    }
+
+    // Seeded pseudo-random function to keep visual jitter position consistent
+    function getJitter(id, seed) {
+        const x = Math.sin(id + seed) * 10000;
+        return (x - Math.floor(x)) - 0.5;
+    }
+
+    // 5. Draw Scatter Plot Circles (Applying subtle jitter to handle dense overlapping entries)
+    svg.selectAll(".dot")
+        .data(data)
+        .enter().append("circle")
+        .attr("class", "dot")
+        .attr("cx", (d, i) => xScale(d.Study_Hours_Per_Week) + getJitter(i, 2.5) * 10)
+        .attr("cy", (d, i) => yScale(d.Stress_Level) + getJitter(i, 7.1) * 10)
+        .attr("r", 5.5)
+        .style("fill", "#9b59b6") // Amethyst purple tone
+        .style("opacity", 0.75)
+        .style("stroke", "#ffffff")
+        .style("stroke-width", 0.5)
+        .on("mouseover", (event, d) => {
+            d3.select(event.currentTarget)
+                .attr("r", 7.5)
+                .style("opacity", 1);
+
+            tooltip.style("visibility", "visible")
+                .html(`
+                    <div style="font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 3px; margin-bottom: 4px;">${d.Subject || 'Record'}</div>
+                    <div>Study Time: <strong>${d.Study_Hours_Per_Week.toFixed(1)} hrs/wk</strong></div>
+                    <div>Stress Level: <strong>${d.Stress_Level}/10</strong></div>
+                    <div style="font-size: 10px; color: #7f8c8d; margin-top: 2px;">Dept: ${d.Department}</div>
+                `)
+                .style("left", (event.pageX + 12) + "px")
+                .style("top", (event.pageY - 35) + "px");
+        })
+        .on("mousemove", (event) => {
+            tooltip
+                .style("left", (event.pageX + 12) + "px")
+                .style("top", (event.pageY - 35) + "px");
+        })
+        .on("mouseout", (event) => {
+            d3.select(event.currentTarget)
+                .attr("r", 5.5)
+                .style("opacity", 0.75);
+            tooltip.style("visibility", "hidden");
+        });
+}
+
+// Scatter Plot: study hour vs grade
+function renderScatterStudyhourVsGrade(data) {
+    const container = d3.select("#scatter-plot-two");
+    container.html(""); // Clear old content before drawing
+
+    const width = container.node().clientWidth;
+    const height = 350;
+    const margin = {top: 30, right: 40, bottom: 50, left: 60};
+
+    const svg = container.append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+    if (!data || data.length === 0) return;
+
+    // 1. Tooltip Configuration Setup
+    let tooltip = d3.select("#scatter-plot-tooltip");
+    if (tooltip.empty()) {
+        tooltip = d3.select("body").append("div")
+            .attr("id", "scatter-plot-tooltip")
+            .style("position", "absolute")
+            .style("visibility", "hidden")
+            .style("background-color", "rgba(255, 255, 255, 0.98)")
+            .style("border", "1px solid #dcdde1")
+            .style("border-radius", "6px")
+            .style("padding", "8px 12px")
+            .style("font-family", "-apple-system, BlinkMacSystemFont, sans-serif")
+            .style("font-size", "12px")
+            .style("color", "#2c3e50")
+            .style("box-shadow", "0 4px 12px rgba(0,0,0,0.15)")
+            .style("pointer-events", "none")
+            .style("z-index", "1000");
+    }
+
+    // 2. Define Coordinate Scales
+    const minHours = d3.min(data, d => +d.Study_Hours_Per_Week) || 0;
+    const maxHours = d3.max(data, d => +d.Study_Hours_Per_Week) || 10;
+    
+    const xScale = d3.scaleLinear()
+        .domain([Math.max(0, minHours - 0.5), maxHours + 0.5])
+        .range([margin.left, width - margin.right]);
+
+    const gradeOrder = ["B", "A-", "A", "A+"];
+    
+    // Numeric mapping dictionary to translate string categories into calculated numbers
+    const gradeValueMap = { "B": 0, "A-": 1, "A": 2, "A+": 3 };
+
+    const yScale = d3.scalePoint()
+        .domain(gradeOrder)
+        .range([height - margin.bottom, margin.top])
+        .padding(0.6);
+
+    const colorScale = d3.scaleOrdinal()
+        .domain(gradeOrder)
+        .range(["#e74c3c", "#f39c12", "#3498db", "#2ecc71"]);
+
+    // 3. --- LINEAR REGRESSION CALCULATION ---
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    let n = data.length;
+
+    data.forEach(d => {
+        const x = +d.Study_Hours_Per_Week;
+        const y = gradeValueMap[d.Final_Letter_Grade]; // Use numeric value instead of string
+        sumX += x;
+        sumY += y;
+        sumXY += x * y;
+        sumXX += x * x;
+    });
+
+    // Calculate slope (m) and intercept (b)
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    // Generate two logical boundary data points for the trendline paths
+    const xPoints = [Math.max(0, minHours - 0.5), maxHours + 0.5];
+    const regressionData = xPoints.map(x => {
+        let calcY = slope * x + intercept;
+        // Clamp computed scores strictly within our scale index boundaries [0, 3]
+        calcY = Math.max(0, Math.min(3, calcY)); 
+        
+        // Use d3.scaleLinear to transition cleanly between the categorical coordinate points
+        const numToYScale = d3.scaleLinear()
+            .domain([0, 3])
+            .range([yScale("B"), yScale("A+")]); // Maps numbers back into pixel positions
+
+        return { x: x, y: numToYScale(calcY) };
+    });
+
+    const trendLineGenerator = d3.line()
+        .x(d => xScale(d.x))
+        .y(d => d.y);
+
+    // 4. Append X Axis & Label
+    svg.append("g")
+        .attr("transform", `translate(0, ${height - margin.bottom})`)
+        .call(d3.axisBottom(xScale).ticks(6))
+        .style("font-size", "11px")
+        .style("font-family", "sans-serif")
+        .append("text")
+        .attr("x", width - margin.right)
+        .attr("y", 38)
+        .style("text-anchor", "end")
+        .style("fill", "#7f8c8d")
+        .style("font-size", "12px")
+        .text("Study Hours Per Week");
+
+    // 5. Append Y Axis & Label
+    svg.append("g")
+        .attr("transform", `translate(${margin.left}, 0)`)
+        .call(d3.axisLeft(yScale))
+        .style("font-size", "12px")
+        .style("font-family", "sans-serif")
+        .append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", -45)
+        .attr("x", -margin.top)
+        .style("text-anchor", "end")
+        .style("fill", "#7f8c8d")
+        .style("font-size", "12px")
+        .text("Final Letter Grade");
+
+    // 6. Add horizontal grid lines
+    svg.append("g")
+        .attr("transform", `translate(${margin.left}, 0)`)
+        .call(d3.axisLeft(yScale)
+            .tickSize(-width + margin.left + margin.right)
+            .tickFormat("")
+        )
+        .selectAll("line")
+        .style("stroke", "#f1f2f6")
+        .style("stroke-dasharray", "3,3")
+        .style("opacity", 0.6);
+
+    // 7. Render Regression Trendline (Drawn behind dots using early appending)
+    svg.append("path")
+        .datum(regressionData)
+        .attr("class", "regression-line")
+        .attr("d", trendLineGenerator)
+        .style("fill", "none")
+        .style("stroke", "#7f8c8d")
+        .style("stroke-width", 2.5)
+        .style("stroke-dasharray", "5,5")
+        .style("opacity", 0.85);
+
+    // 8. Plot Scatter Circles
+    svg.selectAll(".scatter-dot")
+        .data(data)
+        .enter().append("circle")
+        .attr("class", "scatter-dot")
+        .attr("cx", d => xScale(+d.Study_Hours_Per_Week))
+        .attr("cy", d => yScale(d.Final_Letter_Grade))
+        .attr("r", 6.5)
+        .attr("fill", d => colorScale(d.Final_Letter_Grade))
+        .attr("stroke", "#ffffff")
+        .attr("stroke-width", 1.2)
+        .style("opacity", 0.75)
+        .on("mouseover", (event, d) => {
+            d3.select(event.currentTarget)
+                .transition().duration(100)
+                .attr("r", 9.5)
+                .style("opacity", 1);
+
+            tooltip.style("visibility", "visible")
+                .html(`
+                    <div style="font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 3px; margin-bottom: 4px;">${d.Subject || 'Course Entry'}</div>
+                    <div>Study Hours: <strong>${(+d.Study_Hours_Per_Week).toFixed(1)} hrs/wk</strong></div>
+                    <div>Final Grade: <span style="font-weight: bold; color:${colorScale(d.Final_Letter_Grade)}">${d.Final_Letter_Grade}</span></div>
+                    ${d.Week ? `<div>Week: ${d.Week}</div>` : ''}
+                `)
+                .style("left", (event.pageX + 12) + "px")
+                .style("top", (event.pageY - 35) + "px");
+        })
+        .on("mousemove", (event) => {
+            tooltip
+                .style("left", (event.pageX + 12) + "px")
+                .style("top", (event.pageY - 35) + "px");
+        })
+        .on("mouseout", (event) => {
+            d3.select(event.currentTarget)
+                .transition().duration(100)
+                .attr("r", 6.5)
+                .style("opacity", 0.75);
+            tooltip.style("visibility", "hidden");
+        });
+}
+// 2. BAR CHART: Study Hours by Subject
+function renderBar(data) {
+    const container = d3.select("#bar-chart");
+    container.html("");
+
+    const width = container.node().clientWidth;
+    const height = 320;
+    // Increased left margin slightly to 55px to make room for the vertical Y-axis label
+    const margin = {top: 30, right: 20, bottom: 75, left: 55};
+
+    const svg = container.append("svg").attr("width", width).attr("height", height);
+
+    if (data.length === 0) return;
+
+    // 1. Modify the rollup step to return an object containing both the average hours and the grade
+    const rolled = d3.rollup(data, 
+        v => ({
+            avg: d3.mean(v, d => d.Study_Hours_Per_Week) || 0,
+            grade: v[0] ? v[0].Final_Letter_Grade : ""
+        }), 
+        d => d.Subject
+    );
+    
+    // Convert the rollup Map into a flat array structure
+    const rolledData = Array.from(rolled, ([subject, val]) => ({
+        subject, 
+        avg: val.avg, 
+        grade: val.grade
+    })).sort((a, b) => b.avg - a.avg); 
+
+    const xScale = d3.scaleBand()
+        .domain(rolledData.map(d => d.subject))
+        .range([margin.left, width - margin.right])
+        .padding(0.3);
+
+    const maxStudyHours = d3.max(rolledData, d => d.avg) || 0;
+    const yScale = d3.scaleLinear()
+        .domain([0, maxStudyHours + 1])
+        .range([height - margin.bottom, margin.top]);
+
+    svg.append("g")
+        .attr("transform", `translate(0, ${height - margin.bottom})`)
+        .call(d3.axisBottom(xScale))
+        .selectAll("text")               
+        .style("text-anchor", "start")   
+        .attr("dx", ".5em")              
+        .attr("dy", ".5em")              
+        .attr("transform", "rotate(45)"); 
+
+    svg.append("g")
+        .attr("transform", `translate(${margin.left}, 0)`)
+        .call(d3.axisLeft(yScale));
+
+    // --- Added Y-axis Label ---
+    svg.append("text")
+        .attr("class", "y-axis-label")
+        .attr("text-anchor", "middle")
+        // Rotates text 90 degrees counter-clockwise
+        .attr("transform", "rotate(-90)")
+        // Since it's rotated, X controls the vertical position (height)
+        .attr("y", margin.left - 40) 
+        // Y controls the horizontal position (width)
+        .attr("x", -(margin.top + (height - margin.top - margin.bottom) / 2))
+        .style("font-size", "12px")
+        .style("font-weight", "600")
+        .style("fill", "#2c3e50")
+        .style("font-family", "sans-serif")
+        .text("Average Study Hours");
+
+    svg.selectAll(".bar")
+        .data(rolledData)
+        .enter().append("rect")
+        .attr("class", "bar") 
+        .attr("x", d => xScale(d.subject))
+        .attr("y", d => yScale(d.avg))
+        .attr("width", xScale.bandwidth())
+        .attr("height", d => height - margin.bottom - yScale(d.avg))
+        .attr("fill", "#3498db")
+        .on("mouseover", (event, d) => {
+            d3.select(event.currentTarget)
+                .attr("fill", "#111184"); 
+
+            tooltip.style("opacity", 1)
+                .html(`Subject: <strong>${d.subject}</strong><br/>Grade: <strong>${d.grade}</strong><br/>Avg Study Hours: ${d.avg.toFixed(1)} /wk`)
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 28) + "px");
+        })
+        .on("mouseout", (event) => {
+            d3.select(event.currentTarget)
+                .attr("fill", "#3498db");
+
+            tooltip.style("opacity", 0);
+        });
+
+    // 2. Add text elements to show the Final Letter Grade at the top of each bar
+    svg.selectAll(".bar-grade-label")
+        .data(rolledData)
+        .enter().append("text")
+        .attr("class", "bar-grade-label")
+        .attr("x", d => xScale(d.subject) + xScale.bandwidth() / 2) // Positions perfectly in the horizontal center of the bar
+        .attr("y", d => yScale(d.avg) - 6)                         // Positions text 6px cleanly above the top of the bar
+        .attr("text-anchor", "middle")
+        .style("font-size", "12px")
+        .style("font-weight", "700")
+        .style("fill", "#2c3e50")
+        .style("font-family", "sans-serif")
+        .text(d => d.grade);
+}
+
+// 3. LINE CHART: Weekly Average Study Hour by Department
+function renderLine(data) {
+    const container = d3.select("#line-chart");
+    container.html("");
+
+    // 1. Setup layout dimensions
+    const width = container.node().clientWidth;
+    const height = 320;
+    // Wide right margin accommodates long department labels safely without clipping
+    const margin = {top: 20, right: 220, bottom: 40, left: 45};
+
+    const svg = container.append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+    if (!data || data.length === 0) return;
+
+    // Custom HTML Tooltip configuration element
+    let tooltip = d3.select("#line-chart-tooltip");
+    if (tooltip.empty()) {
+        tooltip = d3.select("body").append("div")
+            .attr("id", "line-chart-tooltip")
+            .style("position", "absolute")
+            .style("visibility", "hidden")
+            .style("background-color", "rgba(255, 255, 255, 0.98)")
+            .style("border", "1px solid #dcdde1")
+            .style("border-radius", "6px")
+            .style("padding", "10px 14px")
+            .style("font-family", "-apple-system, BlinkMacSystemFont, sans-serif")
+            .style("font-size", "12px")
+            .style("color", "#2c3e50")
+            .style("box-shadow", "0 4px 16px rgba(0,0,0,0.12)")
+            .style("pointer-events", "none")
+            .style("z-index", "1000");
+    }
+
+    // Date Parser matching your "M/D/YYYY" format (e.g., 8/7/2025)
+    const parseDate = d3.timeParse("%m/%d/%Y");
+
+    // 2. Roll up data by Department and exact Date, computing average Study_Hours_Per_Week
+    const rolledData = d3.flatRollup(
+        data,
+        v => d3.mean(v, d => d.Study_Hours_Per_Week), 
+        d => d.Department,
+        d => d.Date
+    )
+    .map(([department, dateStr, hours]) => {
+        const parsed = dateStr instanceof Date ? dateStr : parseDate(dateStr);
+        return {
+            department,
+            date: parsed,
+            hours: Math.round(hours * 10) / 10 // Round cleanly to 1 decimal place
+        };
+    })
+    .filter(d => d.date !== null); // Filter out any parsing errors safely
+
+    // 3. Create mapping variables for line grouping and styling
+    const groupedData = d3.groups(rolledData, d => d.department);
+    const departments = Array.from(new Set(data.map(d => d.Department)));
+    
+    // Extract unique chronological timestamps for interactive snapping
+    const uniqueDates = Array.from(new Set(rolledData.map(d => d.date.getTime())))
+        .sort((a, b) => a - b)
+        .map(t => new Date(t));
+
+    // 4. Build coordinate scales (Using scaleTime for calendar intervals)
+    const colorScale = d3.scaleOrdinal()
+        .domain(departments)
+        .range(d3.schemeCategory10); 
+
+    const xScale = d3.scaleTime()
+        .domain(d3.extent(rolledData, d => d.date)) 
+        .range([margin.left, width - margin.right]);
+
+    // Dynamic Y scale domain mapping study hours from 0 up to max data point + safety headroom
+    const maxHours = d3.max(rolledData, d => d.hours) || 10;
+    const yHoursScale = d3.scaleLinear()
+        .domain([0, Math.ceil(maxHours + 2)]) 
+        .range([height - margin.bottom, margin.top]);
+
+    // 5. Generate bottom X-Axis (Timeline Months) & Left Y-Axis
+    svg.append("g")
+        .attr("transform", `translate(0, ${height - margin.bottom})`)
+        .call(d3.axisBottom(xScale)
+            .ticks(d3.timeMonth.every(1)) // Uniform monthly markers across the school calendar
+            .tickFormat(d3.timeFormat("%b %Y"))
+        );
+
+    svg.append("g")
+        .attr("transform", `translate(${margin.left}, 0)`)
+        .call(d3.axisLeft(yHoursScale).ticks(5));
+
+    // ADDED: Y-Axis Text Label
+    svg.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", margin.left - 32) // Safely offset to the left of the numbers
+        .attr("x", -(height / 2))     // Vertically center along the axis length
+        .attr("text-anchor", "middle")
+        .style("font-size", "12px")
+        .style("fill", "#2c3e50")
+        .style("font-weight", "500")
+        .style("font-family", "-apple-system, BlinkMacSystemFont, sans-serif")
+        .text("Average Study Hours / Week");
+
+    // Vertical dashed tracking guide rule line that snaps onto timelines on active hover
+    const hoverLine = svg.append("line")
+        .attr("y1", margin.top)
+        .attr("y2", height - margin.bottom)
+        .attr("stroke", "#b2bec3")
+        .attr("stroke-width", 1.5)
+        .attr("stroke-dasharray", "4,4")
+        .style("visibility", "hidden");
+
+    // 6. Define Line Path Generator
+    const lineHours = d3.line()
+        .x(d => xScale(d.date))
+        .y(d => yHoursScale(d.hours))
+        .curve(d3.curveMonotoneX); // Smooths transitions between data points
+
+    // 7. Draw Clean Department Trend Lines (No static dots)
+    svg.selectAll(".department-line")
+        .data(groupedData)
+        .enter().append("path")
+        .attr("class", "line")
+        .attr("d", ([_, values]) => {
+            const sortedValues = values.sort((a, b) => a.date - b.date);
+            return lineHours(sortedValues);
+        })
+        .attr("fill", "none") 
+        .attr("stroke", ([department]) => colorScale(department))
+        .attr("stroke-width", 2.5)
+        .style("opacity", 0.85);
+
+    // 8. Generate hidden context indicators (Circles materialize temporarily on active hover)
+    const hoverDots = svg.selectAll(".hover-dot")
+        .data(rolledData)
+        .enter().append("circle")
+        .attr("class", "hover-dot")
+        .attr("cx", d => xScale(d.date))
+        .attr("cy", d => yHoursScale(d.hours))
+        .attr("r", 0) // Hidden by default (radius 0)
+        .attr("fill", d => colorScale(d.department))
+        .attr("stroke", "#ffffff")
+        .attr("stroke-width", 1.5)
+        .style("pointer-events", "none")
+        .style("transition", "r 0.08s ease");
+
+    // 9. Full overlay capture field layer to seamlessly track cross-coordinate mouse position
+    svg.append("rect")
+        .attr("x", margin.left)
+        .attr("y", margin.top)
+        .attr("width", width - margin.left - margin.right)
+        .attr("height", height - margin.top - margin.bottom)
+        .attr("fill", "transparent")
+        .style("cursor", "pointer")
+        .on("mousemove", function(event) {
+            // Find coordinates relative to the graph overlay bounding frame
+            const [mouseX] = d3.pointer(event);
+            const dateOnX = xScale.invert(mouseX);
+
+            // Compute closest index step match out of our calendar arrays
+            const closestDate = uniqueDates.reduce((prev, curr) => 
+                Math.abs(curr - dateOnX) < Math.abs(prev - dateOnX) ? curr : prev
+            );
+
+            // Snap the tracking guide rule line to the closest active date column coordinate
+            hoverLine.attr("x1", xScale(closestDate))
+                .attr("x2", xScale(closestDate))
+                .style("visibility", "visible");
+
+            // Expand line target indicator nodes exclusively for this date
+            hoverDots.attr("r", d => d.date.getTime() === closestDate.getTime() ? 5 : 0);
+
+            // Harvest values across all departments for that specific calendar frame
+            const dailyData = rolledData.filter(d => d.date.getTime() === closestDate.getTime());
+            const dateTitle = d3.timeFormat("%B %d, %Y")(closestDate);
+            
+            let tooltipContent = `<div style="font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 4px; margin-bottom: 6px;">${dateTitle}</div>`;
+            dailyData.forEach(d => {
+                tooltipContent += `
+                    <div style="display: flex; justify-content: space-between; gap: 20px; align-items: center; margin-top: 3px;">
+                        <span style="color: ${colorScale(d.department)}; font-weight: 500;">● ${d.department}:</span>
+                        <strong>${d.hours.toFixed(1)} hrs</strong>
+                    </div>`;
+            });
+
+            tooltip.style("visibility", "visible")
+                .html(tooltipContent)
+                .style("top", (event.pageY - 20) + "px")
+                .style("left", (event.pageX + 20) + "px");
+        })
+        .on("mouseout", function() {
+            // Clear tracking visualization loops on mouse exit
+            hoverLine.style("visibility", "hidden");
+            hoverDots.attr("r", 0);
+            tooltip.style("visibility", "hidden");
+        });
+
+    // 10. Generate right-side Legend Block
+    const legend = svg.append("g")
+        .attr("transform", `translate(${width - margin.right + 15}, ${margin.top})`);
+
+    departments.forEach((department, index) => {
+        const legendRow = legend.append("g")
+            .attr("transform", `translate(0, ${index * 20})`);
+
+        legendRow.append("rect")
+            .attr("width", 10)
+            .attr("height", 10)
+            .attr("fill", colorScale(department))
+            .attr("rx", 2);
+
+        legendRow.append("text")
+            .attr("x", 16)
+            .attr("y", 10)
+            .style("font-size", "11px")
+            .style("fill", "#2c3e50")
+            .text(department);
+    });
+}
+
+
+function renderScreenTimeComparison(data) {
+    const container = d3.select("#compared-plot");
+    container.html(""); // Removes any old SVG canvases or lingering bars
+    
+    const width = container.node().clientWidth;
+    const height = 320;
+    const margin = {top: 30, right: 30, bottom: 45, left: 55};
+
+    const svg = container.append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+    if (!data || data.length === 0) return;
+
+    // 1. Tooltip Setup
+    let tooltip = d3.select("#bar-chart-tooltip");
+    if (tooltip.empty()) {
+        tooltip = d3.select("body").append("div")
+            .attr("id", "bar-chart-tooltip")
+            .style("position", "absolute")
+            .style("visibility", "hidden")
+            .style("background-color", "rgba(255, 255, 255, 0.98)")
+            .style("border", "1px solid #dcdde1")
+            .style("border-radius", "6px")
+            .style("padding", "8px 12px")
+            .style("font-family", "-apple-system, BlinkMacSystemFont, sans-serif")
+            .style("font-size", "12px")
+            .style("color", "#2c3e50")
+            .style("box-shadow", "0 4px 12px rgba(0,0,0,0.15)")
+            .style("pointer-events", "none")
+            .style("z-index", "1000");
+    }
+
+    // 2. Isolate and calculate the exact mathematical averages
+    const regularWeeks = data.filter(d => +d.Is_Exam_Week === 0);
+    const examWeeks = data.filter(d => +d.Is_Exam_Week === 1);
+
+    const avgRegularScreenTime = d3.mean(regularWeeks, d => +d.Screen_Time_Social_Media) || 0;
+    const avgExamScreenTime = d3.mean(examWeeks, d => +d.Screen_Time_Social_Media) || 0;
+
+    // Hardcoded array guarantees EXACTLY 2 categorical bars will generate on the X-axis
+    const rolledData = [
+        { category: "Regular Week", hours: Math.round(avgRegularScreenTime * 10) / 10 },
+        { category: "Exam Week", hours: Math.round(avgExamScreenTime * 10) / 10 }
+    ];
+
+    // Sort bars descending so the category with more screen time shows up first
+    rolledData.sort((a, b) => b.hours - a.hours);
+
+    // 3. X and Y Axis Scales
+    const xScale = d3.scaleBand()
+        .domain(rolledData.map(d => d.category))
+        .range([margin.left, width - margin.right])
+        .padding(0.5); // Large padding to separate the 2 bars beautifully
+
+    const maxHours = d3.max(rolledData, d => d.hours) || 15;
+    const yScale = d3.scaleLinear()
+        .domain([0, Math.ceil(maxHours + 2)]) // Headroom above the highest bar for value tags
+        .range([height - margin.bottom, margin.top]);
+
+    const colorMap = {
+        "Regular Week": "#3498db", // Bright Blue
+        "Exam Week": "#2c3e50"     // Deep Slate Navy
+    };
+
+    // 4. Draw X-Axis
+    svg.append("g")
+        .attr("transform", `translate(0, ${height - margin.bottom})`)
+        .call(d3.axisBottom(xScale))
+        .style("font-size", "12px")
+        .style("font-family", "sans-serif");
+
+    // 5. Draw Y-Axis & Label
+    svg.append("g")
+        .attr("transform", `translate(${margin.left}, 0)`)
+        .call(d3.axisLeft(yScale).ticks(5))
+        .style("font-size", "11px")
+        .append("text")
+        .attr("class", "axis-label")
+        .attr("transform", "rotate(-90)")
+        .attr("y", -40)
+        .attr("x", -margin.top)
+        .style("text-anchor", "end")
+        .style("fill", "#7f8c8d")
+        .style("font-size", "11px")
+        .style("font-family", "sans-serif")
+        .text("Avg. Screen Time (Hours / Week)");
+
+    // 6. Draw the 2 Bars
+    svg.selectAll(".comparison-bar")
+        .data(rolledData)
+        .enter().append("rect")
+        .attr("class", "comparison-bar")
+        .attr("x", d => xScale(d.category))
+        .attr("y", d => yScale(d.hours))
+        .attr("width", xScale.bandwidth())
+        .attr("height", d => height - margin.bottom - yScale(d.hours))
+        .attr("fill", d => colorMap[d.category])
+        .attr("rx", 4) // Clean rounded top corners
+        .style("opacity", 0.85)
+        .on("mouseover", (event, d) => {
+            d3.select(event.currentTarget).style("opacity", 1);
+            tooltip.style("visibility", "visible")
+                .html(`
+                    <div style="font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 3px; margin-bottom: 4px;">${d.category}</div>
+                    <div>Avg. Screen Time: <strong>${d.hours.toFixed(1)} hrs/wk</strong></div>
+                `)
+                .style("left", (event.pageX + 12) + "px")
+                .style("top", (event.pageY - 35) + "px");
+        })
+        .on("mousemove", (event) => {
+            tooltip
+                .style("left", (event.pageX + 12) + "px")
+                .style("top", (event.pageY - 35) + "px");
+        })
+        .on("mouseout", (event) => {
+            d3.select(event.currentTarget).style("opacity", 0.85);
+            tooltip.style("visibility", "hidden");
+        });
+
+    // 7. Inline Value Labeling directly over both bars
+    svg.selectAll(".bar-value-label")
+        .data(rolledData)
+        .enter().append("text")
+        .attr("class", "bar-value-label")
+        .attr("x", d => xScale(d.category) + xScale.bandwidth() / 2)
+        .attr("y", d => yScale(d.hours) - 8)
+        .attr("text-anchor", "middle")
+        .style("font-size", "12px")
+        .style("font-weight", "600")
+        .style("fill", "#2c3e50")
+        .style("font-family", "sans-serif")
+        .text(d => `${d.hours.toFixed(1)} hrs`);
+}
+
+
+
+
+
+</script>
+
+</body>
+</html>
